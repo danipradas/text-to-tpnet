@@ -1,3 +1,6 @@
+import logging
+import os
+
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
 from streamlit_extras.bottom_container import bottom
@@ -7,9 +10,11 @@ from tpnet_assistant import (
     transcribe,
     send_tpnet_command,
     parse_device_data,
-    refresh_device_data
+    refresh_device_data,
+    verify_set,
 )
-import os
+
+logger = logging.getLogger("app")
 
 voice_input = False
 
@@ -37,7 +42,7 @@ connected = False
 
 with col_connect:
     if st.button("Connect to device with TPNET (SYSTEM CONNECT)"):
-        print("Connecting to device...")
+        logger.info("Connecting to device %s", device_ip)
         with st.spinner("Connecting to device..."):
             response = send_tpnet_command("SYSTEM CONNECT\n")
             parse_device_data(response)
@@ -242,17 +247,6 @@ if "device_data" in st.session_state:
 
         st.success("Changes applied!")
 
-    device_name = st.session_state["device_data"]["info"]["name"]
-
-    if "VIDA" in device_name:
-        device_name = "VIDA"
-    elif "eMIMO" in device_name:
-        device_name = "eMIMO"
-    elif "MIMO" in device_name:
-        device_name = "MIMO"
-    elif "HUB" in device_name:
-        device_name = "HUB"
-
     # 3) Main Chat Section
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -301,24 +295,42 @@ if "device_data" in st.session_state:
             with st.spinner("Thinking..."):
                 try:
                     ai_response_dict = get_struct_tpnet_response(
-                        final_prompt, device_name
+                        final_prompt
                     )
                     tpnet_input = parse_output(ai_response_dict)
                     tpnet_response = send_tpnet_command(tpnet_input)
+
+                    # SET/INC/DEC have no TP-NET acknowledgement — read
+                    # the value back so we always have something to show.
+                    cmd_type = ai_response_dict["type"]
+                    verification = ""
+                    if cmd_type in ("SET", "INC", "DEC"):
+                        verification = verify_set(ai_response_dict)
+
                     refresh_device_data()
 
                     st.markdown(f"**Command Generated**: {tpnet_input}")
-                    st.markdown(f"**Response from TPNET**: {tpnet_response}")
+                    if verification:
+                        st.markdown(
+                            f"**Device state**: {verification}"
+                        )
+                    elif tpnet_response:
+                        st.markdown(
+                            f"**Response from TPNET**: {tpnet_response}"
+                        )
+                    else:
+                        st.markdown("**Command sent (no reply).**")
 
+                    bubble = (
+                        f"{tpnet_input}\n{verification or tpnet_response}"
+                    )
                     st.session_state.messages.append(
-                        {
-                            "role": "assistant",
-                            "content": f"{tpnet_input}\n{tpnet_response}"
-                        }
+                        {"role": "assistant", "content": bubble}
                     )
                     voice_input = False
 
                 except Exception as e:
+                    logger.exception("Chat request failed")
                     error_message = "An error occurred during your request."
                     st.error(f"{error_message}: {str(e)}")
                     st.session_state.messages.append(

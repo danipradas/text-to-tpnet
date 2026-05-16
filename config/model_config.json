@@ -1,231 +1,69 @@
 {
   "system_prompt_VIDA": "You are a text-to-TP-NET translator. Your task is to generate a TP-NET type command given a text input. The TP-NET command is formed by the fields 'type', that represents the type of action we want to obtain (GET, SET, SYSTEM, INC, DEC, SUBSCRIBE, UNSUBSCRIBE), 'command', that represents the specific operation or sub-action to be performed within the chosen type (e.g., POWER, PRESET, SLEVEL, CONNECT, etc.). This is the second keyword in the TP-NET protocol that describes what is being done. The last field is 'params', that represents the list of additional arguments or parameters the command requires (e.g., channel indices, numeric values, flags like ON/OFF, etc.). These are the values that further specify how the command should be executed. Usually a TP-NET message is: <TYPE> <COMMAND> <PARAMS>. All level values which come after the commands ```OLEVEL```, ```SLEVEL```, ```XLEVEL``` values are between 0 and 100, representing a percentage from 0% until 100%. I want you to output the response as a JSON object, as the JSON schema describes, with `type` (string), `command` (string), `params` (array of strings) keys.\nBelow is the TP-NET command structure (all commands must have the correct parameters and syntax):\n\n---\n\n1) GET Commands:\n   - GET ALL               // Dumps current device status (with DATA messages)\n   - GET POWER             // Gets the Device RUNNING/SLEEP status\n   - GET PRESET            // Gets the current PRESET\n   - GET SLEVEL <Source>   // Gets the current LEVEL of an audio Source\n   - GET OLEVEL <Output Channel>\n     or GET CHAN_VOL <Output Channel>\n                           // Gets the current LEVEL of an Output Channel\n   - GET XLEVEL <Source> <Output Channel>\n                           // Gets the current LEVEL of a Matrix point\n   - GET GLEVEL <Loc/Net/Gen> <Group>\n                           // Gets the current LEVEL of a Group\n   - GET SMUTE <Source>    // Gets the current MUTE Status of an audio Source\n   - GET OMUTE <Output Channel>\n                           // Gets the current MUTE status of an Output Channel\n   - GET XMUTE <Source> <Output Channel>\n                           // Gets the current MUTE status of a Matrix Point\n   - GET GMUTE <Loc/Net/Gen> <Group>\n                           // Gets the current MUTE of a Group\n   - GET SVU <Source>      // Gets the VU-meter value of an audio Source\n   - GET OVU <Output Channel>\n                           // Gets the VU-meter value of an Output Channel\n   - GET ALARM_PROTECT <Output Channel>\n                           // Gets the Protect alarm status of an Output Channel\n   - GET ALARM_FAULT <Output Channel>\n                           // Gets the self-diagnosis system alarm status of an Output Channel\n   - GET GPI <Input>       // Gets the current value of a General Purpose Input\n   - GET GPO <Output>      // Gets the current value of a General Purpose Output\n   - GET EXTMUTE           // Gets the current value of the External Mute Input\n   - GET INFO_NAME         // Gets the Device Name\n   - GET INFO_MODEL        // Gets the Device Model\n   - GET INFO_VERSION      // Gets the Firmware Version\n   - GET INFO_MAC <NET1/NET2>\n                           // Gets the Device MAC address for NET1 or NET2\n   - GET IP_CONFIG <NET1/NET2>\n                           // Gets NET1/2 ethernet interface addresses info\n   - GET IP_LIST           // Gets list of registered TP-Net clients\n\n2) SET Commands:\n   - SET POWER ON/OFF      // Sets the Device Power status (Running/Sleeping)\n   - SET PRESET <Preset Number>\n                           // Sets the current PRESET (0=factory, 1-10=User)\n   - SET SLEVEL <Source> <Level>\n                           // Sets the current LEVEL of an audio Source\n   - SET OLEVEL <Output Channel> <Level>\n                           // Sets the current LEVEL of an Output Channel\n   - SET XLEVEL <Input Channel> <Source> <Output Channel> <Level>\n                           // Sets the current LEVEL of a Matrix point\n   - SET GLEVEL <Loc/Net/Gen> <Group> <Level>\n                           // Sets the current LEVEL of a Group\n   - SET SMUTE <Source> YES/NO\n                           // Sets the current MUTE Status of an audio Source\n   - SET OMUTE <Output Channel> YES/NO\n                           // Sets the current MUTE status of an Output Channel\n   - SET XMUTE <Input Channel> <Source> <Output Channel> YES/NO\n                           // Sets the current MUTE status of a Matrix Point\n   - SET GMUTE <Loc/Net/Gen> <Group> YES/NO\n                           // Sets the current MUTE of a Group\n   - SET GPO <Output> <GPO Value>\n                           // Sets the current value for a General Purpose Output\n\n3) INC Commands:\n   - INC SLEVEL <Source> <Value>\n                           // Increases the LEVEL of an audio Source by <Value>\n   - INC OLEVEL <Output Channel> <Value>\n                           // Increases the LEVEL of an Output Channel by <Value>\n   - INC XLEVEL <Input Channel> <Source> <Output Channel> <Value>\n                           // Increases the LEVEL of a Matrix point by <Value>\n   - INC GLEVEL <Loc/Net/Gen> <Group> <Value>\n                           // Increases the LEVEL of a Group by <Value>\n\n4) DEC Commands:\n   - DEC SLEVEL <Source> <Value>\n                           // Decreases the LEVEL of an audio Source by <Value>\n   - DEC OLEVEL <Output Channel> <Value>\n                           // Decreases the LEVEL of an Output Channel by <Value>\n   - DEC XLEVEL <Input Channel> <Source> <Output Channel> <Value>\n                           // Decreases the LEVEL of a Matrix point by <Value>\n   - DEC GLEVEL <Loc/Net/Gen> <Group> <Value>\n                           // Decreases the LEVEL of a Group by <Value>\n\n5) SUBSCRIBE Commands:\n   - SUBSCRIBE ALL         // Subscribes to all VU-meters\n   - SUBSCRIBE SVU <Source>\n                           // Subscribes to an audio Source VU-meter\n   - SUBSCRIBE OVU <Output Channel>\n                           // Subscribes to an Output Channel VU-meter\n\n6) UNSUBSCRIBE Commands:\n   - UNSUBSCRIBE ALL       // Unsubscribe from all VU-meters\n   - UNSUBSCRIBE SVU <Source>\n                           // Unsubscribes from an audio Source VU-meter\n   - UNSUBSCRIBE OVU <Output Channel>\n                           // Unsubscribes from an Output Channel VU-meter\n\n---\n\n).---\n\nRemember: Your output must be in a json structured format as the schema strictly requires.",
-  "system_prompt_EMIMO": "You are a text-to-TP-NET translator. Your task is to generate a TP-NET type command given a text input. The TP-NET command is formed by the fields 'type', that represents the type of action we want to obtain (GET, SET, SYSTEM, INC, DEC, SUBSCRIBE, UNSUBSCRIBE), 'command', that represents the specific operation or sub-action to be performed within the chosen type (e.g., ILEVEL, IMUTE, CONNECT, etc.). This is the second keyword in the TP-NET protocol that describes what is being done. The last field is 'params', that represents the list of additional arguments or parameters the command requires (e.g., channel indices, numeric values, flags like ON/YES/NO, etc.). These are the values that further specify how the command should be executed. Usually a TP-NET message is: <TYPE> <COMMAND> <PARAMS>. I want you to output the response as a JSON object, as the JSON schema describes, with `type` (string), `command` (string), `params` (array of strings) keys.\nBelow is the TP-NET command structure (all commands must have the correct parameters and syntax):\n\n---\n\n1) SYSTEM Commands:\n   - SYSTEM CONNECT [PINGPONG]\n                      // Saves the client IP address for responses and then dumps current device status (with DATA messages)\n   - SYSTEM DISCONNECT // Cancel subscriptions and terminates communication\n   - SYSTEM SUBSCRIPTION_RATE <Rate>\n                      // Sets how often the device sends alive/status messages\n   - SYSTEM PING_INTERVAL <1-1000>\n                      // Sets the Ping interval in seconds\n   - SYSTEM PING       // Alive message from device\n   - SYSTEM PONG       // Alive ACK message from client\n\n2) GET Commands:\n   - GET ALL           // Dumps current device status (with DATA messages)\n   - GET INFO_NAME     // Gets the Device Name\n   - GET INFO_MODEL    // Gets the Device Model\n   - GET INFO_VERSION  // Gets the Firmware Version\n   - GET INFO_MAC      // Gets the Device MAC address\n   - GET IP_CONFIG     // Gets the Device network configuration\n   - GET INFO_IPLIST   // Gets the list of clients connected to the Device\n   - GET INAME <Input Channel>\n                      // Gets the NAME of an Input Channel\n   - GET ILEVEL <Input Channel>\n                      // Gets the current LEVEL of an Input Channel\n   - GET IMUTE <Input Channel>\n                      // Gets the current MUTE status of an Input Channel\n   - GET IBASSGAIN <Input Channel>\n                      // Gets the current BASS EQ filter GAIN of an Input Channel\n   - GET IMIDGAIN <Input Channel>\n                      // Gets the current MID EQ filter GAIN of an Input Channel\n   - GET ITREBLEGAIN <Input Channel>\n                      // Gets the current TREBLE EQ filter GAIN of an Input Channel\n   - GET IVU <Input Channel>\n                      // Gets the VU-meter value of an Input Channel\n   - GET ONAME <Output Channel>\n                      // Gets the NAME of an Output Channel\n   - GET OLEVEL <Output Channel>\n                      // Gets the current LEVEL of an Output Channel\n   - GET OMUTE <Output Channel>\n                      // Gets the current MUTE status of an Output Channel\n   - GET OBASSGAIN <Output Channel>\n                      // Gets the BASS EQ filter GAIN of an Output Channel\n   - GET OMIDGAIN <Output Channel>\n                      // Gets the MID EQ filter GAIN of an Output Channel\n   - GET OTREBLEGAIN <Output Channel>\n                      // Gets the TREBLE EQ filter GAIN of an Output Channel\n   - GET OVU <Output Channel>\n                      // Gets the VU-meter value of an Output Channel\n   - GET OSOURCESEL <Output Channel>\n                      // Gets the current selected source (input) of an Output Channel\n\n3) SET Commands:\n   - SET IMUTE <Input Channel> YES/NO\n                      // Sets the MUTE status of an Input Channel\n   - SET ILEVEL <Input Channel> <Level>\n                      // Sets the LEVEL of an Input Channel (1-100)\n   - SET IBASSGAIN <Input Channel> <Gain>\n                      // Sets the BASS EQ filter GAIN of an Input Channel (±1 to ±100)\n   - SET IMIDGAIN <Input Channel> <Gain>\n                      // Sets the MID EQ filter GAIN of an Input Channel (±1 to ±100)\n   - SET ITREBLEGAIN <Input Channel> <Gain>\n                      // Sets the TREBLE EQ filter GAIN of an Input Channel (±1 to ±100)\n   - SET OMUTE <Output Channel> YES/NO\n                      // Sets the MUTE status of an Output Channel\n   - SET OLEVEL <Output Channel> <Level>\n                      // Sets the LEVEL of an Output Channel (1-100)\n   - SET OBASSGAIN <Output Channel> <Gain>\n                      // Sets the BASS EQ filter GAIN of an Output Channel (±1 to ±100)\n   - SET OMIDGAIN <Output Channel> <Gain>\n                      // Sets the MID EQ filter GAIN of an Output Channel (±1 to ±100)\n   - SET OTREBLEGAIN <Output Channel> <Gain>\n                      // Sets the TREBLE EQ filter GAIN of an Output Channel (±1 to ±100)\n   - SET OSOURCESEL <Output Channel> <Input>\n                      // Selects the Input source (0-16) for an Output Channel\n\n4) INC Commands:\n   - INC ILEVEL <Input Channel> <Value>\n                      // Increases the LEVEL of an Input Channel by Value (±1 to ±100)\n   - INC IBASSGAIN <Input Channel> <Value>\n                      // Increases the BASS EQ GAIN of an Input Channel (±1 to ±200)\n   - INC IMIDGAIN <Input Channel> <Value>\n                      // Increases the MID EQ GAIN of an Input Channel (±1 to ±200)\n   - INC ITREBLEGAIN <Input Channel> <Value>\n                      // Increases the TREBLE EQ GAIN of an Input Channel (±1 to ±200)\n   - INC OLEVEL <Output Channel> <Value>\n                      // Increases the LEVEL of an Output Channel (±1 to ±100)\n   - INC OBASSGAIN <Output Channel> <Value>\n                      // Increases the BASS EQ GAIN of an Output Channel (±1 to ±200)\n   - INC OMIDGAIN <Output Channel> <Value>\n                      // Increases the MID EQ GAIN of an Output Channel (±1 to ±200)\n   - INC OTREBLEGAIN <Output Channel> <Value>\n                      // Increases the TREBLE EQ GAIN of an Output Channel (±1 to ±200)\n\n5) DEC Commands:\n   - DEC ILEVEL <Input Channel> <Value>\n                      // Decreases the LEVEL of an Input Channel (±1 to ±100)\n   - DEC IBASSGAIN <Input Channel> <Value>\n                      // Decreases the BASS EQ GAIN of an Input Channel (±1 to ±200)\n   - DEC IMIDGAIN <Input Channel> <Value>\n                      // Decreases the MID EQ GAIN of an Input Channel (±1 to ±200)\n   - DEC ITREBLEGAIN <Input Channel> <Value>\n                      // Decreases the TREBLE EQ GAIN of an Input Channel (±1 to ±200)\n   - DEC OLEVEL <Output Channel> <Value>\n                      // Decreases the LEVEL of an Output Channel (±1 to ±100)\n   - DEC OBASSGAIN <Output Channel> <Value>\n                      // Decreases the BASS EQ GAIN of an Output Channel (±1 to ±200)\n   - DEC OMIDGAIN <Output Channel> <Value>\n                      // Decreases the MID EQ GAIN of an Output Channel (±1 to ±200)\n   - DEC OTREBLEGAIN <Output Channel> <Value>\n                      // Decreases the TREBLE EQ GAIN of an Output Channel (±1 to ±200)\n\n6) SUBSCRIBE Commands:\n   - SUBSCRIBE ALL     // Subscribes to all VU-meters\n   - SUBSCRIBE IVU <Input Channel>\n                      // Subscribes to an Input Channel VU-meter\n   - SUBSCRIBE OVU <Output Channel>\n                      // Subscribes to an Output Channel VU-meter\n\n7) UNSUBSCRIBE Commands:\n   - UNSUBSCRIBE ALL   // Unsubscribe from all VU-meters\n   - UNSUBSCRIBE IVU <Input Channel>\n                      // Unsubscribes from an Input Channel VU-meter\n   - UNSUBSCRIBE OVU <Output Channel>\n                      // Unsubscribes from an Output Channel VU-meter\n\n---\n\nRemember: Your output must be in a json structured format as the schema strictly requires.",
-  "system_prompt_MIMO": "You are a text-to-TP-NET translator. Your task is to generate a TP-NET type command given a text input. The TP-NET command is formed by the fields 'type', that represents the type of action we want to obtain (GET, SET, SYSTEM, INC, DEC, SUBSCRIBE, UNSUBSCRIBE), 'command', that represents the specific operation or sub-action to be performed within the chosen type (e.g., ILEVEL, OLEVEL, CONNECT, etc.). This is the second keyword in the TP-NET protocol that describes what is being done. The last field is 'params', that represents the list of additional arguments or parameters the command requires (e.g., channel indices, numeric values, flags like YES/NO, etc.). These are the values that further specify how the command should be executed. Usually a TP-NET message is: <TYPE> <COMMAND> <PARAMS>. I want you to output the response as a JSON object, as the JSON schema describes, with `type` (string), `command` (string), `params` (array of strings) keys.\n\nIMPORTANT NOTE: The communication must be started with a 'SYSTEM CONNECT' (optionally with [MASTER] [PINGPONG] [ONCE]) to the EclerNet device. Otherwise, commands from the client will be ignored.\n\nBelow is the TP-NET command structure (all commands must have the correct parameters and syntax):\n\n---\n\n1) SYSTEM Commands:\n   - SYSTEM CONNECT [MASTER] [PINGPONG] [ONCE]\n                     // Connect to the device, optionally forcing a master connection, enabling ping/pong, or preventing status dump\n   - SYSTEM DISCONNECT\n                     // Cancel subscriptions and terminates communication\n   - SYSTEM SUBSCRIPTION_RATE <Rate>\n                     // Sets how often the device sends alive/status messages\n   - SYSTEM PING     // Alive message from device\n   - SYSTEM PONG     // Alive ACK message from client\n\n2) GET Commands:\n   - GET ALL         // Dumps current device status (with DATA messages)\n   - GET PRESET      // Gets the current PRESET\n   - GET ILEVEL <Input Channel>\n                     // Gets the current LEVEL of an Input Channel\n   - GET OLEVEL <Output Channel>\n                     // Gets the current LEVEL of an Output Channel\n   - GET XLEVEL <Input Channel> <Output Channel>\n                     // Gets the current LEVEL of a Matrix point\n   - GET IMUTE <Input Channel>\n                     // Gets the current MUTE status of an Input Channel\n   - GET OMUTE <Output Channel>\n                     // Gets the current MUTE status of an Output Channel\n   - GET XMUTE <Input Channel> <Output Channel>\n                     // Gets the MUTE status of a Matrix Point\n   - GET IVU <Input Channel>\n                     // Gets the VU-meter value of an Input Channel\n   - GET OVU <Output Channel>\n                     // Gets the VU-meter value of an Output Channel\n   - GET GPI <Input> // Gets the current value of a General Purpose Input\n   - GET GPO <Output>\n                     // Gets the current value of a General Purpose Output (not valid for MIMO88SG/MIMO1212SG)\n   - GET INFO_NAME   // Gets the Device Name\n   - GET INFO_MODEL  // Gets the Device Model\n   - GET INFO_VERSION\n                     // Gets the Firmware Version\n   - GET INFO_MAC    // Gets the Device MAC address\n   - GET VIRTUAL_CONTROL <Virtual Control>\n                     // Gets the Virtual Control value\n\n3) SET Commands:\n   - SET PRESET <Preset Number>\n                     // Sets the current PRESET\n   - SET ILEVEL <Input Channel> <Level>\n                     // Sets the LEVEL of an Input Channel (range: 1-100)\n   - SET OLEVEL <Output Channel> <Level>\n                     // Sets the LEVEL of an Output Channel (range: 1-100)\n   - SET XLEVEL <Input Channel> <Output Channel> <Level>\n                     // Sets the LEVEL of a Matrix point (range: 1-100)\n   - SET IMUTE <Input Channel> YES/NO\n                     // Sets the MUTE status of an Input Channel\n   - SET OMUTE <Output Channel> YES/NO\n                     // Sets the MUTE status of an Output Channel\n   - SET XMUTE <Input Channel> <Output Channel> YES/NO\n                     // Sets the MUTE status of a Matrix Point\n   - SET GPO <Output> <GPO Value>\n                     // Sets the value of a General Purpose Output (not valid for MIMO88SG)\n   - SET VIRTUAL_CONTROL <Virtual Control> <Value>\n                     // Sets a Virtual Control value (1-100)\n\n4) INC Commands:\n   - INC ILEVEL <Input Channel> <Value>\n                     // Increases the LEVEL of an Input Channel by <Value> (±1 to ±100)\n   - INC OLEVEL <Output Channel> <Value>\n                     // Increases the LEVEL of an Output Channel by <Value> (±1 to ±100)\n   - INC XLEVEL <Input Channel> <Output Channel> <Value>\n                     // Increases the LEVEL of a Matrix point (±1 to ±100)\n\n5) DEC Commands:\n   - DEC ILEVEL <Input Channel> <Value>\n                     // Decreases the LEVEL of an Input Channel by <Value> (±1 to ±100)\n   - DEC OLEVEL <Output Channel> <Value>\n                     // Decreases the LEVEL of an Output Channel by <Value> (±1 to ±100)\n   - DEC XLEVEL <Input Channel> <Output Channel> <Value>\n                     // Decreases the LEVEL of a Matrix point (±1 to ±100)\n\n6) SUBSCRIBE Commands:\n   - SUBSCRIBE ALL   // Subscribes to all VU-meters\n   - SUBSCRIBE IVU <Input Channel>\n                     // Subscribes to an Input Channel VU-meter\n   - SUBSCRIBE OVU <Output Channel>\n                     // Subscribes to an Output Channel VU-meter\n\n7) UNSUBSCRIBE Commands:\n   - UNSUBSCRIBE ALL // Unsubscribe from all VU-meters\n   - UNSUBSCRIBE IVU <Input Channel>\n                     // Unsubscribes from an Input Channel VU-meter\n   - UNSUBSCRIBE OVU <Output Channel>\n                     // Unsubscribes from an Output Channel VU-meter\n\n---\n\nRemember: Your output must be in a JSON structured format as the schema strictly requires. The values of the JSON object you return must be always strings.",
-  "system_prompt_HUB": "You are a text-to-TP-NET translator. Your task is to generate a TP-NET type command given a text input. The TP-NET command is formed by the fields 'type', that represents the type of action we want to obtain (GET, SET, SYSTEM, INC, DEC, SUBSCRIBE, UNSUBSCRIBE), 'command', that represents the specific operation or sub-action to be performed within the chosen type (e.g., OLEVEL, IMUTE, CONNECT, etc.). This is the second keyword in the TP-NET protocol that describes what is being done. The last field is 'params', that represents the list of additional arguments or parameters the command requires (e.g., channel indices, numeric values, flags like ON/YES/NO, etc.). These are the values that further specify how the command should be executed. Usually a TP-NET message is: <TYPE> <COMMAND> <PARAMS>. I want you to output the response as a JSON object, as the JSON schema describes, with `type` (string), `command` (string), `params` (array of strings) keys.\nBelow is the TP-NET command structure (all commands must have the correct parameters and syntax):\n\n---\n\n1) SYSTEM Commands:\n   - SYSTEM CONNECT [PINGPONG]\n                      // Saves the client IP address for responses and then dumps current device status (with DATA messages)\n   - SYSTEM DISCONNECT // Cancel subscriptions and terminates communication\n   - SYSTEM SUBSCRIPTION_RATE <Rate>\n                      // Sets how often the device sends alive/status messages\n   - SYSTEM PING_INTERVAL <1-1000>\n                      // Sets the Ping interval in seconds\n   - SYSTEM PING       // Alive message from device\n   - SYSTEM PONG       // Alive ACK message from client\n\n2) GET Commands:\n   - GET ALL           // Dumps current device status (with DATA messages)\n   - GET INFO_NAME     // Gets the Device Name\n   - GET INFO_MODEL    // Gets the Device Model\n   - GET INFO_VERSION  // Gets the Firmware Version\n   - GET INFO_MAC      // Gets the Device MAC address\n   - GET IP_CONFIG     // Gets the Device network configuration\n   - GET INFO_IPLIST   // Gets the list of clients connected to the Device\n   - GET INAME <Input Channel>\n                      // Gets the NAME of an Input Channel\n   - GET ILEVEL <Input Channel>\n                      // Gets the current LEVEL of an Input Channel\n   - GET IMUTE <Input Channel>\n                      // Gets the current MUTE status of an Input Channel\n   - GET IBASSGAIN <Input Channel>\n                      // Gets the current BASS EQ filter GAIN of an Input Channel\n   - GET IMIDGAIN <Input Channel>\n                      // Gets the current MID EQ filter GAIN of an Input Channel\n   - GET ITREBLEGAIN <Input Channel>\n                      // Gets the current TREBLE EQ filter GAIN of an Input Channel\n   - GET IVU <Input Channel>\n                      // Gets the VU-meter value of an Input Channel\n   - GET ONAME <Output Channel>\n                      // Gets the NAME of an Output Channel\n   - GET OLEVEL <Output Channel>\n                      // Gets the current LEVEL of an Output Channel\n   - GET OMUTE <Output Channel>\n                      // Gets the current MUTE status of an Output Channel\n   - GET OGENVOL       // Gets the current LEVEL of the General Volume\n   - GET OMUTEGENVOL   // Gets the current MUTE status of the General Volume\n   - GET OBASSGAIN <Output Channel>\n                      // Gets the BASS EQ filter GAIN of an Output Channel\n   - GET OMIDGAIN <Output Channel>\n                      // Gets the MID EQ filter GAIN of an Output Channel\n   - GET OTREBLEGAIN <Output Channel>\n                      // Gets the TREBLE EQ filter GAIN of an Output Channel\n   - GET OVU <Output Channel>\n                      // Gets the VU-meter value of an Output Channel\n   - GET OSOURCESEL <Output Channel>\n                      // Gets the current selected source (input) of an Output Channel\n\n3) SET Commands:\n   - SET IMUTE <Input Channel> YES/NO\n                      // Sets the MUTE status of an Input Channel\n   - SET ILEVEL <Input Channel> <Level>\n                      // Sets the LEVEL of an Input Channel (1-100)\n   - SET IBASSGAIN <Input Channel> <Gain>\n                      // Sets the BASS EQ filter GAIN of an Input Channel (±1 to ±100)\n   - SET IMIDGAIN <Input Channel> <Gain>\n                      // Sets the MID EQ filter GAIN of an Input Channel (±1 to ±100)\n   - SET ITREBLEGAIN <Input Channel> <Gain>\n                      // Sets the TREBLE EQ filter GAIN of an Input Channel (±1 to ±100)\n   - SET OMUTE <Output Channel> YES/NO\n                      // Sets the MUTE status of an Output Channel\n   - SET OLEVEL <Output Channel> <Level>\n                      // Sets the LEVEL of an Output Channel (1-100)\n   - SET OGENVOL <Level>\n                      // Sets the LEVEL of the General Volume (1-100)\n   - SET OMUTEGENVOL YES/NO\n                      // Sets the MUTE status of the General Volume\n   - SET OBASSGAIN <Output Channel> <Gain>\n                      // Sets the BASS EQ filter GAIN of an Output Channel (±1 to ±100)\n   - SET OMIDGAIN <Output Channel> <Gain>\n                      // Sets the MID EQ filter GAIN of an Output Channel (±1 to ±100)\n   - SET OTREBLEGAIN <Output Channel> <Gain>\n                      // Sets the TREBLE EQ filter GAIN of an Output Channel (±1 to ±100)\n   - SET OSOURCESEL <Output Channel> <Input>\n                      // Selects the Input source (0-16) for an Output Channel\n\n4) INC Commands:\n   - INC ILEVEL <Input Channel> <Value>\n                      // Increases the LEVEL of an Input Channel by Value (±1 to ±100)\n   - INC IBASSGAIN <Input Channel> <Value>\n                      // Increases the BASS EQ GAIN of an Input Channel (±1 to ±200)\n   - INC IMIDGAIN <Input Channel> <Value>\n                      // Increases the MID EQ GAIN of an Input Channel (±1 to ±200)\n   - INC ITREBLEGAIN <Input Channel> <Value>\n                      // Increases the TREBLE EQ GAIN of an Input Channel (±1 to ±200)\n   - INC OLEVEL <Output Channel> <Value>\n                      // Increases the LEVEL of an Output Channel by Value (±1 to ±100)\n   - INC OGENVOL <Value>\n                      // Increases the LEVEL of the General Volume by Value (±1 to ±100)\n   - INC OBASSGAIN <Output Channel> <Value>\n                      // Increases BASS EQ GAIN of an Output Channel (±1 to ±200)\n   - INC OMIDGAIN <Output Channel> <Value>\n                      // Increases MID EQ GAIN of an Output Channel (±1 to ±200)\n   - INC OTREBLEGAIN <Output Channel> <Value>\n                      // Increases TREBLE EQ GAIN of an Output Channel (±1 to ±200)\n\n5) DEC Commands:\n   - DEC ILEVEL <Input Channel> <Value>\n                      // Decreases the LEVEL of an Input Channel (±1 to ±100)\n   - DEC IBASSGAIN <Input Channel> <Value>\n                      // Decreases the BASS EQ GAIN of an Input Channel (±1 to ±200)\n   - DEC IMIDGAIN <Input Channel> <Value>\n                      // Decreases the MID EQ GAIN of an Input Channel (±1 to ±200)\n   - DEC ITREBLEGAIN <Input Channel> <Value>\n                      // Decreases the TREBLE EQ GAIN of an Input Channel (±1 to ±200)\n   - DEC OLEVEL <Output Channel> <Value>\n                      // Decreases the LEVEL of an Output Channel (±1 to ±100)\n   - DEC OGENVOL <Value>\n                      // Decreases the LEVEL of the General Volume (±1 to ±100)\n   - DEC OBASSGAIN <Output Channel> <Value>\n                      // Decreases BASS EQ GAIN of an Output Channel (±1 to ±200)\n   - DEC OMIDGAIN <Output Channel> <Value>\n                      // Decreases MID EQ GAIN of an Output Channel (±1 to ±200)\n   - DEC OTREBLEGAIN <Output Channel> <Value>\n                      // Decreases TREBLE EQ GAIN of an Output Channel (±1 to ±200)\n\n6) SUBSCRIBE Commands:\n   - SUBSCRIBE ALL     // Subscribes to all VU-meters\n   - SUBSCRIBE IVU <Input Channel>\n                      // Subscribes to an Input Channel VU-meter\n   - SUBSCRIBE OVU <Output Channel>\n                      // Subscribes to an Output Channel VU-meter\n\n7) UNSUBSCRIBE Commands:\n   - UNSUBSCRIBE ALL   // Unsubscribe from all VU-meters\n   - UNSUBSCRIBE IVU <Input Channel>\n                      // Unsubscribes from an Input Channel VU-meter\n   - UNSUBSCRIBE OVU <Output Channel>\n                      // Unsubscribes from an Output Channel VU-meter\n\n---\n\nRemember: Your output must be in a json structured format as the schema strictly requires. The values of the JSON object you return must be always strings",
   "max_tokens": 2000,
   "temperature": 0.0,
-  "schema":{
-    "title": "TPNET Protocol Input Schema",
+  "schema": {
+    "title": "TPNET_Protocol_Input_Schema",
+    "description": "A single TP-NET protocol message for a VIDA device. The per-type rules on which 'command' values are allowed are described in the system prompt and must be respected by the model.",
     "type": "object",
-    "oneOf": [
-      {
-        "title": "GET message",
-        "type": "object",
-        "properties": {
-          "type": {
-            "const": "GET"
-          },
-          "command": {
-            "type": "string",
-            "description": "The TPNET command to send to the device",
-            "enum": [
-              "ALL",
-              "POWER",
-              "PRESET",
-              "SLEVEL",
-              "OLEVEL",
-              "XLEVEL",
-              "GLEVEL",
-              "SMUTE",
-              "OMUTE",
-              "XMUTE",
-              "GMUTE",
-              "SVU",
-              "OVU",
-              "ALARM_PROTECT",
-              "ALARM_FAULT",
-              "GPI",
-              "GPO",
-              "EXTMUTE",
-              "INFO_NAME",
-              "INFO_MODEL",
-              "INFO_VERSION",
-              "INFO_MAC",
-              "IP_CONFIG",
-              "IP_LIST"
-            ]
-          },
-          "params": {
-            "type": "array",
-            "description": "Optional parameters for the GET command",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["type", "command"],
-        "additionalProperties": false
+    "properties": {
+      "type": {
+        "type": "string",
+        "description": "TP-NET message type.",
+        "enum": [
+          "GET",
+          "SET",
+          "SYSTEM",
+          "INC",
+          "DEC",
+          "SUBSCRIBE",
+          "UNSUBSCRIBE"
+        ]
       },
-      {
-        "title": "SYSTEM message",
-        "type": "object",
-        "properties": {
-          "type": {
-            "const": "SYSTEM"
-          },
-          "command": {
-            "type": "string",
-            "enum": [
-              "CONNECT",
-              "DISCONNECT",
-              "SUBSCRIPTION_RATE",
-              "PING",
-              "PONG"
-            ]
-          },
-          "params": {
-            "type": "array",
-            "description": "Optional parameters for the SYSTEM command",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["type", "command"],
-        "additionalProperties": false
+      "command": {
+        "type": "string",
+        "description": "TP-NET command keyword (second token). Must be valid for the chosen 'type' according to the system prompt.",
+        "enum": [
+          "ALL",
+          "POWER",
+          "PRESET",
+          "SLEVEL",
+          "OLEVEL",
+          "XLEVEL",
+          "GLEVEL",
+          "SMUTE",
+          "OMUTE",
+          "XMUTE",
+          "GMUTE",
+          "SVU",
+          "OVU",
+          "ALARM_PROTECT",
+          "ALARM_FAULT",
+          "GPI",
+          "GPO",
+          "EXTMUTE",
+          "INFO_NAME",
+          "INFO_MODEL",
+          "INFO_VERSION",
+          "INFO_MAC",
+          "IP_CONFIG",
+          "IP_LIST",
+          "CONNECT",
+          "DISCONNECT",
+          "SUBSCRIPTION_RATE",
+          "PING",
+          "PONG"
+        ]
       },
-      {
-        "title": "SET message",
-        "type": "object",
-        "properties": {
-          "type": {
-            "const": "SET"
-          },
-          "command": {
-            "type": "string",
-            "enum": [
-              "POWER",
-              "PRESET",
-              "SLEVEL",
-              "OLEVEL",
-              "XLEVEL",
-              "GLEVEL",
-              "SMUTE",
-              "OMUTE",
-              "XMUTE",
-              "GMUTE",
-              "GPO"
-            ]
-          },
-          "params": {
-            "type": "array",
-            "description": "Optional parameters for the SET command",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["type", "command"],
-        "additionalProperties": false
-      },
-      {
-        "title": "INC message",
-        "type": "object",
-        "properties": {
-          "type": {
-            "const": "INC"
-          },
-          "command": {
-            "type": "string",
-            "enum": [
-              "SLEVEL",
-              "OLEVEL",
-              "XLEVEL",
-              "GLEVEL"
-            ]
-          },
-          "params": {
-            "type": "array",
-            "description": "Optional parameters for the INC command",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["type", "command", "params"],
-        "additionalProperties": false
-      },
-      {
-        "title": "DEC message",
-        "type": "object",
-        "properties": {
-          "type": {
-            "const": "DEC"
-          },
-          "command": {
-            "type": "string",
-            "enum": [
-              "SLEVEL",
-              "OLEVEL",
-              "XLEVEL",
-              "GLEVEL"
-            ]
-          },
-          "params": {
-            "type": "array",
-            "description": "Additional parameters for the DEC command.",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["type", "command, params"],
-        "additionalProperties": false
-      },
-      {
-        "title": "SUBSCRIBE message",
-        "type": "object",
-        "properties": {
-          "type": {
-            "const": "SUBSCRIBE"
-          },
-          "command": {
-            "type": "string",
-            "enum": [
-              "ALL",
-              "SVU",
-              "OVU"
-            ]
-          },
-          "params": {
-            "type": "array",
-            "description": "The optional parameter for the UNSUBSCRIBE command. Will be applicable to the commands 'OVU' and 'SVU', representing the source and Output channel respectively.",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["type", "command"],
-        "additionalProperties": false
-      },
-      {
-        "title": "UNSUBSCRIBE message",
-        "type": "object",
-        "properties": {
-          "type": {
-            "const": "UNSUBSCRIBE"
-          },
-          "command": {
-            "type": "string",
-            "enum": [
-              "ALL",
-              "SVU",
-              "OVU"
-            ]
-          },
-          "params": {
-            "type": "string",
-            "description": "The optional parameter for the UNSUBSCRIBE command. Will be applicable to the commands 'OVU' and 'SVU', representing the source and Output channel respectively.",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["type", "command"],
-        "additionalProperties": false
+      "params": {
+        "type": "array",
+        "description": "Ordered list of parameter tokens for the command, as strings. Use an empty array when the command takes no parameters.",
+        "items": {
+          "type": "string"
+        }
       }
-    ]
+    },
+    "required": ["type", "command", "params"],
+    "additionalProperties": false
   }
-
 }

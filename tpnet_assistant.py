@@ -1,9 +1,41 @@
+from typing import List, Literal
+
 from langchain_groq.chat_models import ChatGroq
 from openai import OpenAI
+from pydantic import BaseModel, Field
 import socket
 import json
+import logging
 import jsonschema
 import streamlit as st
+
+
+class TPNetCommand(BaseModel):
+    """A single TP-NET protocol message for an Ecler VIDA device."""
+
+    type: Literal[
+        "GET", "SET", "SYSTEM", "INC", "DEC", "SUBSCRIBE", "UNSUBSCRIBE"
+    ] = Field(description="TP-NET message TYPE keyword.")
+    command: str = Field(
+        description=(
+            "TP-NET command keyword (second token), e.g. OLEVEL,"
+            " POWER, PRESET. Must be valid for the chosen 'type'"
+            " per the system prompt."
+        )
+    )
+    params: List[str] = Field(
+        description=(
+            "Ordered parameter tokens for the command, as strings."
+            " Use an empty list when the command takes no parameters."
+        )
+    )
+
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("tpnet_assistant")
 
 
 with open('config/model_config.json') as f:
@@ -23,47 +55,43 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 
 def transcribe(audio_file: str) -> str:
+    logger.debug("Transcribing audio file: %s", audio_file)
     audio_file = open(audio_file, "rb")
     transcription = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file
     )
+    logger.debug("Whisper transcription: %r", transcription.text)
     return transcription.text
 
 
-def get_tpnet_response(user_prompt: str, device: str) -> str:
-    messages = [
-        {"role": "system", "content": model_config[f"system_prompt_{device}"]},
-        {"role": "user", "content": user_prompt}
-    ]
-    response = llm.invoke(messages)
-    return response.content
-
-
-def get_struct_tpnet_response(user_prompt: str, device: str) -> dict:
+def get_struct_tpnet_response(user_prompt: str) -> dict:
     '''
-    Obtains the TP-NET command output from the model, forcing to return a
-    response following the TP-NET command structure.
+    Obtains the TP-NET command output from the model, forcing the response
+    to follow the TP-NET command structure (VIDA devices only).
     Parameters:
         user_prompt (str): The user prompt to send to the model.
     Returns:
-        dict: The structured output from the model.
+        dict: {"type": str, "command": str, "params": list[str]}
     '''
     try:
-        structured_output = llm.with_structured_output(model_config["schema"])
+        logger.debug("get_struct_tpnet_response prompt=%r", user_prompt)
+        structured = llm.with_structured_output(TPNetCommand)
         messages = [
             {"role": "system",
-             "content": model_config[f"system_prompt_{device}"]
+             "content": model_config["system_prompt_VIDA"]
              },
             {"role": "user", "content": user_prompt}
         ]
-        st.markdown(device)
-        response = structured_output.invoke(messages)
+        result: TPNetCommand = structured.invoke(messages)
+        response = result.model_dump()
+        logger.debug("LLM structured response: %r", response)
         return response
-    except Exception:
-        raise ("An error occurred while obtaining the response."
-               " Please check if the IP address is correct or try again."
-               )
+    except Exception as exc:
+        logger.exception("Failed to obtain structured TP-NET response")
+        raise RuntimeError(
+            f"LLM call failed ({type(exc).__name__}): {exc}"
+        ) from exc
 
 
 def parse_output(output: dict) -> str:
@@ -109,8 +137,11 @@ def send_tpnet_command(
     device_ip = st.session_state.device_ip
     try:
         # Send the command to the device
+        logger.info(
+            "TP-NET -> %s:%d %r (timeout=%.2fs)",
+            device_ip, PORT, command, timeout,
+        )
         sock.sendto(command.encode(), (device_ip, PORT))
-        print(f"Sent command: {command}")
 
         # Receive the response from the device
         response = []
@@ -118,13 +149,18 @@ def send_tpnet_command(
         while True:
             try:
                 data, addr = sock.recvfrom(4096)  # Buffer size is 4096 bytes
-                response.append(data.decode())
+                chunk = data.decode()
+                logger.debug("TP-NET <- %s %r", addr, chunk)
+                response.append(chunk)
             except socket.timeout:
                 break
 
         # Combine the response into a single string
         full_response = "".join(response)
-        print(f"Full response received:\n{full_response}")
+        logger.info(
+            "TP-NET full response (%d bytes):\n%s",
+            len(full_response), full_response,
+        )
 
         # Update the device data
         refresh_device_data() if refresh else None
@@ -132,8 +168,25 @@ def send_tpnet_command(
         return full_response
 
     except Exception as e:
-        print(f"Error: {e}")
+        logger.exception("send_tpnet_command failed: %s", e)
         return "An error is raised."
+
+
+def verify_set(cmd: dict) -> str:
+    """Read back the device state after a SET/INC/DEC, which TP-NET
+    does not acknowledge by protocol.
+
+    Re-issues a GET using the same command keyword and the addressing
+    tokens (every parameter except the trailing value/flag), so the
+    DATA line the device replies with reflects what it actually stored.
+    """
+    command = cmd["command"]
+    params = cmd.get("params") or []
+    addressing = params[:-1] if params else []
+    suffix = (" " + " ".join(addressing)) if addressing else ""
+    wire = f"GET {command}{suffix}\n"
+    logger.debug("verify_set wire=%r", wire)
+    return send_tpnet_command(wire, timeout=1.5, refresh=False)
 
 
 # -------------------------------
@@ -142,23 +195,21 @@ def send_tpnet_command(
 
 
 def refresh_device_data():
-    print("refreshing device data...")
+    logger.debug("Refreshing device data (GET ALL)")
     response = send_tpnet_command("GET ALL\n", timeout=1, refresh=False)
     parse_device_data(response)
+    return response
 
 
 def parse_device_data(data_response: str):
     """
-    Parses a multi-line TP-NET response (from GET ALL, etc.)
-    and stores each recognized DATA line in st.session_state["device_data"].
-
-    Supports VIDA, HUB, MIMO
+    Parses a multi-line TP-NET response (from GET ALL, etc.) and stores each
+    recognized DATA line in st.session_state["device_data"] (VIDA only).
     """
 
     # Ensure we have a device_data dict with all possible keys
     if "device_data" not in st.session_state:
         st.session_state["device_data"] = {
-            # Common fields for VIDA or older code
             "olevel": {},
             "omute": {},
             "slevel": {},
@@ -170,31 +221,8 @@ def parse_device_data(data_response: str):
             "info": {},
             "power": "",
             "preset": "",
-
-            # Additional fields for HUB / eMIMO / MIMO
-            "ilevel": {},          # ILEVEL <Input> <Value>
-            "imute": {},           # IMUTE <Input> YES/NO
-            "iname": {},           # INAME <Input> <String>
-            "ibassgain": {},       # IBASSGAIN <Input> <Value>
-            "imidgain": {},        # IMIDGAIN <Input> <Value>
-            "itreblegain": {},     # ITREBLEGAIN <Input> <Value>
-            "ivu": {},             # IVU <Input> <Value>
-
-            "oname": {},           # ONAME <Output> <String>
-            # olevel -> "olevel" above
-            # omute -> "omute" above
-            "obassgain": {},        # OBASSGAIN <Output> <Value>
-            "omidgain": {},         # OMIDGAIN <Output> <Value>
-            "otreblegain": {},      # OTREBLEGAIN <Output> <Value>
-            "ovu": {},              # OVU <Output> <Value>
-            "osourcesel": {},       # OSOURCESEL <Output> <Input>
-
-            "genvol": None,         # OGENVOL <Value> (HUB only)
-            "omutegenvol": None,    # OMUTEGENVOL YES/NO (HUB only)
-
-            "gpi": {},              # GPI <Input> <Value>
-            "gpo": {},              # GPO <Output> <Value>
-            "virtual_control": {},  # VIRTUAL_CONTROL <Control> <Value>
+            "gpi": {},   # GPI <Input> <Value>
+            "gpo": {},   # GPO <Output> <Value>
         }
 
     lines = data_response.strip().split("\n")
@@ -341,126 +369,6 @@ def parse_device_data(data_response: str):
                     "gateway": gateway
                 }
 
-        # ------------------------------------------------------------
-        #  New fields for HUB / eMIMO / MIMO
-        # ------------------------------------------------------------
-        elif tag == "ILEVEL":
-            # ILEVEL <Input Channel> <Level>
-            if len(tokens) >= 2:
-                ch, level_str = tokens[0], tokens[1]
-                try:
-                    st.session_state[
-                        "device_data"]["ilevel"][ch] = float(level_str)
-                except ValueError:
-                    pass
-
-        elif tag == "IMUTE":
-            # IMUTE <Input Channel> YES/NO
-            if len(tokens) >= 2:
-                ch, status = tokens[0], tokens[1]
-                st.session_state["device_data"]["imute"][ch] = status
-
-        elif tag == "INAME":
-            if len(tokens) >= 1:
-                ch = tokens[0]
-                label = rest[len(ch):].strip()
-                st.session_state["device_data"]["iname"][ch] = label.strip('"')
-
-        elif tag == "IBASSGAIN":
-            if len(tokens) >= 2:
-                ch, val_str = tokens[0], tokens[1]
-                try:
-                    st.session_state[
-                        "device_data"]["ibassgain"][ch] = float(val_str)
-                except ValueError:
-                    pass
-
-        elif tag == "IMIDGAIN":
-            if len(tokens) >= 2:
-                ch, val_str = tokens[0], tokens[1]
-                try:
-                    st.session_state[
-                        "device_data"]["imidgain"][ch] = float(val_str)
-                except ValueError:
-                    pass
-
-        elif tag == "ITREBLEGAIN":
-            if len(tokens) >= 2:
-                ch, val_str = tokens[0], tokens[1]
-                try:
-                    st.session_state[
-                        "device_data"]["itreblegain"][ch] = float(val_str)
-                except ValueError:
-                    pass
-
-        elif tag == "IVU":
-            if len(tokens) >= 2:
-                ch, val_str = tokens[0], tokens[1]
-                try:
-                    st.session_state["device_data"]["ivu"][ch] = float(val_str)
-                except ValueError:
-                    pass
-
-        elif tag == "ONAME":
-            if len(tokens) >= 1:
-                ch = tokens[0]
-                label = rest[len(ch):].strip()
-                st.session_state["device_data"]["oname"][ch] = label.strip('"')
-
-        elif tag == "OBASSGAIN":
-            if len(tokens) >= 2:
-                ch, val_str = tokens[0], tokens[1]
-                try:
-                    st.session_state[
-                        "device_data"]["obassgain"][ch] = float(val_str)
-                except ValueError:
-                    pass
-
-        elif tag == "OMIDGAIN":
-            if len(tokens) >= 2:
-                ch, val_str = tokens[0], tokens[1]
-                try:
-                    st.session_state[
-                        "device_data"]["omidgain"][ch] = float(val_str)
-                except ValueError:
-                    pass
-
-        elif tag == "OTREBLEGAIN":
-            if len(tokens) >= 2:
-                ch, val_str = tokens[0], tokens[1]
-                try:
-                    st.session_state[
-                        "device_data"]["otreblegain"][ch] = float(val_str)
-                except ValueError:
-                    pass
-
-        elif tag == "OVU":
-            if len(tokens) >= 2:
-                ch, val_str = tokens[0], tokens[1]
-                try:
-                    st.session_state["device_data"]["ovu"][ch] = float(val_str)
-                except ValueError:
-                    pass
-
-        elif tag == "OSOURCESEL":
-            if len(tokens) >= 2:
-                ch, input_sel = tokens[0], tokens[1]
-                st.session_state["device_data"]["osourcesel"][ch] = input_sel
-
-        elif tag == "OGENVOL":
-            # OGENVOL <Value>
-            val_str = tokens[0] if tokens else None
-            if val_str:
-                try:
-                    st.session_state["device_data"]["genvol"] = float(val_str)
-                except ValueError:
-                    pass
-
-        elif tag == "OMUTEGENVOL":
-            # OMUTEGENVOL YES/NO
-            if len(tokens) >= 1:
-                st.session_state["device_data"]["omutegenvol"] = tokens[0]
-
         elif tag == "GPI":
             # GPI <Input> <Value>
             if len(tokens) >= 2:
@@ -472,18 +380,3 @@ def parse_device_data(data_response: str):
             if len(tokens) >= 2:
                 out_ch, val_str = tokens[0], tokens[1]
                 st.session_state["device_data"]["gpo"][out_ch] = val_str
-
-        elif tag == "VIRTUAL_CONTROL":
-            # VIRTUAL_CONTROL <ControlID> <Value>
-            if len(tokens) >= 2:
-                ctrl_id, val_str = tokens[0], tokens[1]
-                try:
-                    st.session_state[
-                        "device_data"
-                        ]["virtual_control"][ctrl_id] = float(val_str)
-                except ValueError:
-                    st.session_state[
-                        "device_data"]["virtual_control"][ctrl_id] = val_str
-        # ------------------------------------------------------------
-        # End of new fields
-        # ------------------------------------------------------------
