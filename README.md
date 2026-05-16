@@ -49,7 +49,21 @@ Install the required dependencies using the following command:
 pip install -r requirements.txt
 ```
 
-### 4. Run the application
+### 4. Set up API keys
+To run the application, you need to set up the following API keys as environment variables:
+- `GROQ_API_KEY`: Your Groq API key for accessing the LLM model. You can obtain it for free by signing up on the [Groq website](https://console.groq.com/home?utm_source=website&utm_medium=outbound_link&utm_campaign=dev_console_click).
+- `OPENAI_API_KEY`: Your OpenAI API key for accessing the Whisper model for speech recognition
+You can set the environment variables in your terminal using the following commands:
+```bash
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+```
+Then, open the `.streamlit/secrets.toml` file and replace the placeholder values with your actual API keys:
+```toml
+GROQ_API_KEY = "your_groq_api_key_here"
+OPENAI_API_KEY = "your_openai_api_key_here"
+```
+
+### 5. Run the application
 To run the application, execute the command:
 ```bash
 streamlit run app.py
