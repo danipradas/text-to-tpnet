@@ -5,10 +5,8 @@ Repository for the source code of an AI model that converts natural language to 
 
 ## About TP-NET
 TP-NET is a protocol developed by Ecler to control their audio devices. It is a text-based protocol that allows users to send commands to the devices. The protocol is based on a set of commands that are sent to the device to control its functionalities, such as volume control, input selection, and power management, among others. The commands are sent in plain text format, making it easy to implement and use.
-Available devices that support TP-NET protocol in this project are:
-- VIDA series
-- HUB series
-- MIMO series
+
+This project currently targets the **VIDA series only**. The TP-NET protocol itself also covers the HUB and MIMO series, and extending support to those families is a possible future direction (it would require a dedicated system prompt and schema per device family — see `config/model_config.json`).
 
 More information about the TP-NET protocol can be found in the [official documentation](https://media.ecler.com/1702317974-ecler-tp-net-protocol-en.pdf).
 
@@ -50,10 +48,11 @@ pip install -r requirements.txt
 ```
 
 ### 4. Set up API keys
-To run the application, you need to set up the following API keys as environment variables:
+The application reads its API keys from `.streamlit/secrets.toml` via `st.secrets[...]` (not from environment variables). You need:
 - `GROQ_API_KEY`: Your Groq API key for accessing the LLM model. You can obtain it for free by signing up on the [Groq website](https://console.groq.com/home?utm_source=website&utm_medium=outbound_link&utm_campaign=dev_console_click).
-- `OPENAI_API_KEY`: Your OpenAI API key for accessing the Whisper model for speech recognition
-You can set the environment variables in your terminal using the following commands:
+- `OPENAI_API_KEY`: Your OpenAI API key for accessing the Whisper model for speech recognition.
+
+Copy the example file and fill in your keys:
 ```bash
 cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 ```
@@ -68,3 +67,29 @@ To run the application, execute the command:
 ```bash
 streamlit run app.py
 ```
+
+## Using TP-NET from Claude Desktop (MCP server)
+
+The repo also ships an MCP server, `server.py`, that exposes the same UDP + parser layer as the Streamlit app over the Model Context Protocol. Any MCP client (e.g. Claude Desktop) can drive the VIDA device using natural language — the *client's* LLM produces the structured TP-NET command, and the server sends it.
+
+The server exposes two tools:
+- `tpnet_get_device_status` — runs `GET ALL` and returns the parsed device state as JSON.
+- `tpnet_send_command` — sends any TP-NET command (GET/SET/INC/DEC/SUBSCRIBE/UNSUBSCRIBE/SYSTEM); for SET/INC/DEC it auto-issues a follow-up GET because TP-NET does not ACK those.
+
+The target device IP is **not** an LLM-controllable parameter; it is read from the `TPNET_DEVICE_IP` environment variable. `SYSTEM CONNECT` is issued lazily on the first tool call and reused for the rest of the process lifetime.
+
+Add this entry to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS), adjusting the absolute paths and the IP for your environment:
+
+```json
+{
+  "mcpServers": {
+    "tpnet": {
+      "command": "C:\\ecler_projects\\tfg-2\\text-to-tpnet\\.venv\\Scripts\\python.exe",
+      "args":    ["C:\\ecler_projects\\tfg-2\\text-to-tpnet\\server.py"],
+      "env":     { "TPNET_DEVICE_IP": "192.168.1.50" }
+    }
+  }
+}
+```
+
+Restart Claude Desktop; the `tpnet` server should appear in the MCP panel and Claude will be able to call both tools. The Streamlit app is unaffected — `server.py` is a second, independent entry point.

@@ -130,6 +130,10 @@ def send_tpnet_command(
     """Send a TPnet command to the Ecler device.
     Parameters:
         command (str): The TP-net command to send.
+        refresh (bool): If True, call ``refresh_device_data()`` after the
+            reply is drained. Internal helpers that are themselves invoked
+            from ``refresh_device_data`` (e.g. ``verify_set``) MUST pass
+            ``refresh=False`` to avoid an infinite GET-ALL loop.
 
     Returns:
         str: The full response received from the device.
