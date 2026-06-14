@@ -31,10 +31,6 @@ class TPNetCommand(BaseModel):
     )
 
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger("tpnet_assistant")
 
 
@@ -56,11 +52,11 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 def transcribe(audio_file: str) -> str:
     logger.debug("Transcribing audio file: %s", audio_file)
-    audio_file = open(audio_file, "rb")
-    transcription = client.audio.transcriptions.create(
-        model="whisper-1",
-        file=audio_file
-    )
+    with open(audio_file, "rb") as f:
+        transcription = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=f,
+        )
     logger.debug("Whisper transcription: %r", transcription.text)
     return transcription.text
 
@@ -104,16 +100,7 @@ def parse_output(output: dict) -> str:
         str: The formatted TPNET command to send to the device.
     '''
     jsonschema.validate(output, model_config["schema"])
-    params = ""
-    if isinstance(output['params'], str):
-        params = output['params']
-
-    elif isinstance(output['params'], list):
-        if len(output['params']) > 0:
-            if isinstance(output['params'][0], str):
-                for param in output['params']:
-                    params += f" {param}"
-
+    params = "".join(f" {p}" for p in output['params'])
     return f"{output['type']} {output['command']}{params}\n"
 
 
@@ -173,7 +160,7 @@ def send_tpnet_command(
 
     except Exception as e:
         logger.exception("send_tpnet_command failed: %s", e)
-        return "An error is raised."
+        raise
 
 
 def verify_set(cmd: dict) -> str:

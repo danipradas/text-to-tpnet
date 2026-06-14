@@ -1,5 +1,8 @@
+import hashlib
+import ipaddress
 import logging
 import os
+import tempfile
 
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
@@ -14,6 +17,10 @@ from tpnet_assistant import (
     verify_set,
 )
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 logger = logging.getLogger("app")
 
 voice_input = False
@@ -27,7 +34,7 @@ with st.expander("ℹ️ Disclaimer"):
     st.caption(
         """
         We appreciate your engagement! This model provides a TP-NET command
-        based on your text or speech input.Please note, this is a demo version
+        based on your text or speech input. Please note, this is a demo version
         and may have limitations based on usage, and TP-NET commands generated
         may not be accurate or complete. Please verify the output you get.
         """
@@ -37,26 +44,30 @@ with st.expander("ℹ️ Disclaimer"):
 device_ip = st.text_input("Enter the IP address of the TPNET device")
 st.session_state["device_ip"] = device_ip
 
+ip_valid = False
+if device_ip:
+    try:
+        ipaddress.ip_address(device_ip)
+        ip_valid = True
+    except ValueError:
+        st.warning("Invalid IP address.")
+
 col_connect, col_refresh = st.columns([2, 1])
-connected = False
 
 with col_connect:
-    if st.button("Connect to device with TPNET (SYSTEM CONNECT)"):
+    if st.button(
+        "Connect to device with TPNET (SYSTEM CONNECT)", disabled=not ip_valid
+    ):
         logger.info("Connecting to device %s", device_ip)
         with st.spinner("Connecting to device..."):
             response = send_tpnet_command("SYSTEM CONNECT\n")
             parse_device_data(response)
-            connected = True
 
 
 with col_refresh:
-    if st.button("Refresh Device Data (GET ALL)"):
-        refresh_response = refresh_device_data()
-        st.success("Device data refreshed and parsed!")
-        st.markdown(
-            f"**Response from GET ALL**: {refresh_response}"
-            f" -- {type(refresh_response)}"
-        )
+    if st.button("Refresh Device Data (GET ALL)", disabled=not ip_valid):
+        refresh_device_data()
+        st.success("Device data refreshed!")
 
 
 # 2) SIDEBAR Device Controls
@@ -198,7 +209,7 @@ if "device_data" in st.session_state:
         for ch, new_val in updated_olevels.items():
             old_val = device_data["olevel"][ch]
             if old_val != new_val:
-                cmd = f"SET OLEVEL {ch} {new_val}\n"
+                cmd = f"SET OLEVEL {ch} {int(new_val)}\n"
                 send_tpnet_command(cmd)
                 device_data["olevel"][ch] = new_val
 
@@ -215,7 +226,7 @@ if "device_data" in st.session_state:
         for src, new_val in updated_slevels.items():
             old_val = device_data["slevel"][src]
             if old_val != new_val:
-                cmd = f"SET SLEVEL {src} {new_val}\n"
+                cmd = f"SET SLEVEL {src} {int(new_val)}\n"
                 send_tpnet_command(cmd)
                 device_data["slevel"][src] = new_val
 
@@ -232,7 +243,7 @@ if "device_data" in st.session_state:
         for (src, out_ch), new_val in updated_xlevels.items():
             old_val = device_data["xlevel"][(src, out_ch)]
             if old_val != new_val:
-                cmd = f"SET XLEVEL {src} {out_ch} {new_val}\n"
+                cmd = f"SET XLEVEL {src} {out_ch} {int(new_val)}\n"
                 send_tpnet_command(cmd)
                 device_data["xlevel"][(src, out_ch)] = new_val
 
@@ -266,18 +277,21 @@ if "device_data" in st.session_state:
     transcribed_prompt = ""
 
     if audio_data:
-        audio_file_path = "audio.wav"
-        with open(audio_file_path, "wb") as f:
-            f.write(audio_data)
-        st.success("Audio recorded successfully.")
-
-        with st.spinner("Transcribing..."):
-            transcribed_text = transcribe(audio_file_path)
-
-        if transcribed_text and transcribed_text.strip():
-            transcribed_prompt = transcribed_text.strip()
-            voice_input = True
-        os.remove(audio_file_path)
+        audio_hash = hashlib.md5(audio_data).hexdigest()
+        if audio_hash != st.session_state.get("last_audio_hash"):
+            st.session_state["last_audio_hash"] = audio_hash
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp.write(audio_data)
+                tmp_path = tmp.name
+            st.success("Audio recorded successfully.")
+            try:
+                with st.spinner("Transcribing..."):
+                    transcribed_text = transcribe(tmp_path)
+                if transcribed_text and transcribed_text.strip():
+                    transcribed_prompt = transcribed_text.strip()
+                    voice_input = True
+            finally:
+                os.remove(tmp_path)
 
     # If there's typed input or voice input
     if prompt or voice_input:
@@ -298,7 +312,7 @@ if "device_data" in st.session_state:
                         final_prompt
                     )
                     tpnet_input = parse_output(ai_response_dict)
-                    tpnet_response = send_tpnet_command(tpnet_input)
+                    tpnet_response = send_tpnet_command(tpnet_input, refresh=False)
 
                     # SET/INC/DEC have no TP-NET acknowledgement — read
                     # the value back so we always have something to show.
@@ -339,5 +353,6 @@ if "device_data" in st.session_state:
 
 
 else:
-    st.sidebar.info("No device data yet."
-                    "Click 'Refresh Device Data (GET ALL)' after connecting.")
+    st.sidebar.info(
+        "No device data yet. Click 'Refresh Device Data (GET ALL)' after connecting."
+    )

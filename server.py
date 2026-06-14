@@ -297,18 +297,18 @@ def tpnet_send_command(params: SendCommandInput) -> str:
        SET PRESET <0..10>                        — 0=factory, 1..10=user
        SET SLEVEL <Source> <Level 0..100>
        SET OLEVEL <OutputChannel> <Level 0..100>
-       SET XLEVEL <InputChannel> <Source> <OutputChannel> <Level 0..100>
+       SET XLEVEL <Source> <OutputChannel> <Level 0..100>
        SET GLEVEL <Loc/Net/Gen> <Group> <Level 0..100>
        SET SMUTE  <Source> YES|NO
        SET OMUTE  <OutputChannel> YES|NO
-       SET XMUTE  <InputChannel> <Source> <OutputChannel> YES|NO
+       SET XMUTE  <Source> <OutputChannel> YES|NO
        SET GMUTE  <Loc/Net/Gen> <Group> YES|NO
        SET GPO    <Output> <Value>
 
     3) INC / DEC commands (delta-by-Value, 0..100):
        INC|DEC SLEVEL <Source> <Value>
        INC|DEC OLEVEL <OutputChannel> <Value>
-       INC|DEC XLEVEL <InputChannel> <Source> <OutputChannel> <Value>
+       INC|DEC XLEVEL <Source> <OutputChannel> <Value>
        INC|DEC GLEVEL <Loc/Net/Gen> <Group> <Value>
 
     4) SUBSCRIBE / UNSUBSCRIBE (VU streaming):
@@ -320,11 +320,14 @@ def tpnet_send_command(params: SendCommandInput) -> str:
        SYSTEM CONNECT / DISCONNECT  (CONNECT is auto-issued on first
                                      call; rarely needed manually).
     """
+    global _connected
     _ensure_connected()
     suffix = "".join(f" {p}" for p in params.params)
     wire = f"{params.type} {params.command}{suffix}\n"
     reply = _send(wire)
-    if params.type in ("SET", "INC", "DEC"):
+    if params.type == "SYSTEM" and params.command == "DISCONNECT":
+        _connected = False
+    elif params.type in ("SET", "INC", "DEC"):
         reply = _verify_set(params.command, params.params)
     _parse_device_data(reply)
     return reply or "(command sent, no reply)"
