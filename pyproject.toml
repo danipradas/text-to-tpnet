@@ -7,7 +7,7 @@ requires-python = ">=3.13.5"
 dependencies = [
     "streamlit",
     "audio-recorder-streamlit",
-    "langchain-groq",
+    "langchain-openai",
     "openai",
     "streamlit-extras",
     "mcp",

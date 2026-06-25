@@ -1,6 +1,7 @@
 from typing import List, Literal
+import os
 
-from langchain_groq.chat_models import ChatGroq
+from langchain_openai import ChatOpenAI
 from openai import OpenAI
 from pydantic import BaseModel, Field
 import socket
@@ -37,25 +38,34 @@ logger = logging.getLogger("tpnet_assistant")
 with open('config/model_config.json') as f:
     model_config = json.load(f)
 
-model = 'llama-3.3-70b-versatile'
+model = 'gpt-5.4-mini'
 
-llm = ChatGroq(
+llm = ChatOpenAI(
     model=model,
     temperature=0,
     max_tokens=2000,
     max_retries=2,
-    api_key=st.secrets['GROQ_API_KEY'],
+    api_key=st.secrets['OPENAI_API_KEY'],
 )
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+WHISPER_MODEL = "whisper-1"
 
 
 def transcribe(audio_file: str) -> str:
+    """Transcribe an audio file to text using OpenAI's Whisper endpoint.
+
+    Parameters:
+        audio_file (str): Path to the audio file to transcribe.
+    Returns:
+        str: The transcribed text.
+    """
     logger.debug("Transcribing audio file: %s", audio_file)
     with open(audio_file, "rb") as f:
-        transcription = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=f,
+        transcription = openai_client.audio.transcriptions.create(
+            model=WHISPER_MODEL,
+            file=(os.path.basename(audio_file), f.read()),
         )
     logger.debug("Whisper transcription: %r", transcription.text)
     return transcription.text
